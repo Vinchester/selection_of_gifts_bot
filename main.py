@@ -38,11 +38,14 @@ def card_create(message):
 @bot.message_handler(content_types=["text"])
 def message_(message):
     """Function to process any text sent by the user"""
-    a = telebot.types.ReplyKeyboardRemove()
-    bot.send_message(message.from_user.id, 'Here you are', reply_markup=a)
     global products
-    products = parser_prod.parsing(categories.get(message.text))
-    card_create(message)
+    if message.text in [x for _, x in enumerate(categories)]:
+        a = telebot.types.ReplyKeyboardRemove()
+        bot.send_message(message.from_user.id, 'Here you are', reply_markup=a)
+        products = parser_prod.parsing(categories.get(message.text))
+        card_create(message)
+    else:
+        bot.send_message(message.chat.id, text="You have typed something wrong!")
 
 
 @bot.callback_query_handler(func=lambda call:True)
