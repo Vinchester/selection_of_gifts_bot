@@ -1,79 +1,65 @@
 import telebot
 from telebot import types
-import parser
+import parser_prod
 import parser_cat
-import token
+import token_bot
 
 
-bot = telebot.TeleBot(token.token)
+bot = telebot.TeleBot(token_bot.token)
+categories = parser_cat.buttons()
 
-current = 0
-current_cat = ""
+current_position = 0
 products = []
+chosen_category = ""
 
 
-def next_elem():
-    print(f"products- {products}")
-    if current >= 0:
-        return products[current]
-    # products = []
-
-
-def prev_elem():
-    print(f"products- {products}")
-    if current <= len(products):
-        return products[current]
-    # products = []
-
-
-
-def message_create(message, args):
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    prev = types.InlineKeyboardButton('Previous', callback_data="previous")
-    next = types.InlineKeyboardButton("Next", callback_data="next")
-    back = types.InlineKeyboardButton("Select category", callback_data="category")
-    markup.add(prev, next, back)
-    bot.send_photo(message.chat.id, args[1], args[0], reply_markup=markup)
-
-
-@bot.message_handler(commands=["starts"])
+@bot.message_handler(commands=["start"])
 def start(message):
-    categories(message)
+    """Start function, when user sends '/start'"""
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    buttons = [types.InlineKeyboardButton(text=x, callback_data=x)
+               for _, x in enumerate(categories)]
+    keyboard.add(*buttons)
+    bot.send_message(message.chat.id, text="Select category", reply_markup=keyboard)
+
+
+def card_create(message):
+    """Function for creation of card(responding message)"""
+    elem = products[current_position]
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    prev_but = types.InlineKeyboardButton('Previous', callback_data="previous")
+    next_but = types.InlineKeyboardButton("Next", callback_data="next")
+    back_but = types.InlineKeyboardButton("Select category", callback_data="category")
+    markup.add(prev_but, next_but, back_but)
+    bot.delete_message(message.chat.id, message.message_id)
+    bot.send_photo(message.chat.id, elem[1], elem[0], reply_markup=markup)
+
+
+@bot.message_handler(content_types=["text"])
+def message_(message):
+    """Function to process any text sent by the user"""
+    a = telebot.types.ReplyKeyboardRemove()
+    bot.send_message(message.from_user.id, 'Here you are', reply_markup=a)
+    global products
+    products = parser_prod.parsing(categories.get(message.text))
+    card_create(message)
 
 
 @bot.callback_query_handler(func=lambda call:True)
 def callback(call):
-    global current
+    """Function to process 'callback_data' from InlineKeyboardButtons"""
+    global current_position
     if call.message:
-        if call.data == "previous":
-            current -= 1
-            message_create(call.message, prev_elem())
-        if call.data == "next":
-            current += 1
-            message_create(call.message, next_elem())
-        if call.data == "category":
-            categories(call.message)
-        bot.delete_message(call.message.chat.id, call.message.message_id)
+        match call.data:
+            case "previous":
+                current_position -= 1
+                card_create(call.message)
+            case "next":
+                current_position += 1
+                card_create(call.message)
+            case "category":
+                start(call.message)
 
-@bot.message_handler(content_types=["text"])
-def messages(message):
-    a = telebot.types.ReplyKeyboardRemove()
-    bot.send_message(message.from_user.id, 'Here', reply_markup=a)
-    global products
-    # print(current_cat)
-    products = parser.pars(current_cat.get(message.text))
-    message_create(message, next_elem())
-
-def categories(message):
-    current = 0
-    products = []
-    print(f"Products categories - {products}")
-    current_cat = parser_cat.buttons()
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = [types.InlineKeyboardButton(text=x, callback_data=x) for _, x in enumerate(current_cat)]
-    keyboard.add(*buttons)
-    bot.send_message(message.chat.id, text="Select category", reply_markup=keyboard)
 
 bot.polling()
-
-
+#DeFakto
